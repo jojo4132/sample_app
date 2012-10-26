@@ -11,8 +11,17 @@ describe "Authentication" do
     it { should have_selector('title', text: 'Sign in') }
   end
 
-    describe "signin" do
+  describe "signin" do
     before { visit signin_path }
+
+    describe "before singnin" do
+      let(:user) { FactoryGirl.create(:user) }
+      
+      it { should_not have_link('Users',    href: users_path) }
+      it { should_not have_link('Profile',  href: user_path(user)) }
+      it { should_not have_link('Settings', href: edit_user_path(user)) }
+      it { should_not have_link('Sign out', href: signout_path) }
+    end
 
     describe "with invalid information" do
       before { click_button "Sign in" }
@@ -64,6 +73,33 @@ describe "Authentication" do
           it "should render the desired protected page" do
             page.should have_selector('title', text: 'Edit user')
           end
+
+          describe "when signing in again" do
+            before do
+              delete signout_path
+              visit signin_path
+              fill_in "Email",    with: user.email
+              fill_in "Password", with: user.password
+              click_button "Sign in"
+            end
+
+            it "should render the default (profile) page" do
+              page.should have_selector('title', text: user.name) 
+            end
+          end
+        end
+      end
+
+      describe "in the Microposts controller" do
+
+        describe "submitting to the create action" do
+          before { post microposts_path }
+          specify { response.should redirect_to(signin_path) }
+        end
+
+        describe "submitting to the destroy action" do
+          before { delete micropost_path(FactoryGirl.create(:micropost)) }
+          specify { response.should redirect_to(signin_path) }
         end
       end
 
@@ -111,6 +147,18 @@ describe "Authentication" do
       describe "submitting a DELETE request to the Users#destroy action" do
         before { delete user_path(user) }
         specify { response.should redirect_to(root_path) }        
+      end
+    end
+
+    describe "accessible attributes" do
+
+      it "should not allow acces to admin" do
+        expect do
+          user = User.create!(name: "Example User",
+                 email: "example@railstutorial.org",
+                 password: "foobar",
+                 password_confirmation: "foobar", admin: "true")
+        end.to raise_error(ActiveModel::MassAssignmentSecurity::Error)
       end
     end
   end
